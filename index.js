@@ -294,7 +294,7 @@
    */
   function Buffer(arg, encodingOrOffset, length) {
     if (!bufferWarningAlreadyEmitted) {
-      console.warn(bufferWarning);
+      setTimeout(() => console.warn(bufferWarning));
       bufferWarningAlreadyEmitted = true;
     }
     // Common case.
