@@ -307,6 +307,15 @@
     return Buffer.from(arg, encodingOrOffset, length);
   }
 
+  FastBuffer.prototype.constructor = Buffer;
+  Buffer.prototype = FastBuffer.prototype;
+
+  Object.defineProperty(Buffer, Symbol.species, {
+    __proto__: null,
+    enumerable: false,
+    configurable: true,
+    get() { return FastBuffer; }
+  });
   Object.defineProperty(Buffer, 'kMaxLength', {
     __proto__: null,
     enumerable: false,
@@ -318,6 +327,26 @@
     enumerable: false,
     configurable: true,
     get() { return kStringMaxLength; }
+  });
+
+  // For backwards compatibility.
+  Object.defineProperty(Buffer.prototype, 'parent', {
+    __proto__: null,
+    enumerable: true,
+    get() {
+      if (!(this instanceof Buffer))
+        return undefined;
+      return this.buffer;
+    }
+  });
+  Object.defineProperty(Buffer.prototype, 'offset', {
+    __proto__: null,
+    enumerable: true,
+    get() {
+      if (!(this instanceof Buffer))
+        return undefined;
+      return this.byteOffset;
+    }
   });
 
   function fromString(string, encoding) {
@@ -431,10 +460,6 @@
     );
   };
 
-  function createUnsafeBuffer(size) {
-    return new FastBuffer(size);
-  }
-
   // Identical to the built-in %TypedArray%.of(), but avoids using the deprecated
   // Buffer() constructor. Must use arrow function syntax to avoid automatically
   // adding a `prototype` property and making the function a constructor.
@@ -442,7 +467,7 @@
   // Refs: https://tc39.github.io/ecma262/#sec-%typedarray%.of
   // Refs: https://esdiscuss.org/topic/isconstructor#content-11
   const of = (...items) => {
-    const newObj = createUnsafeBuffer(items.length);
+    const newObj = new FastBuffer(items.length);
     for (let k = 0; k < items.length; k++)
       newObj[k] = items[k];
     return newObj;
@@ -602,7 +627,7 @@
   Buffer.alloc = function alloc(size, fill, encoding) {
     assertSize(size);
     if (fill !== undefined && fill !== 0 && size > 0) {
-      const buf = createUnsafeBuffer(size);
+      const buf = new FastBuffer(size);
       return _fill(buf, fill, 0, buf.length, encoding);
     }
     return new FastBuffer(size);
@@ -617,59 +642,11 @@
     return allocate(size);
   };
 
-  /**
-   * Equivalent to SlowBuffer(num), by default creates a non-zero-filled
-   * Buffer instance that is not allocated off the pre-initialized pool.
-   * If `--zero-fill-buffers` is set, will zero-fill the buffer.
-   */
-  Buffer.allocUnsafeSlow = function allocUnsafeSlow(size) {
-    assertSize(size);
-    return createUnsafeBuffer(size);
-  };
-
-  function SlowBuffer(length) {
-    assertSize(length);
-    return createUnsafeBuffer(length);
-  }
-
-  Object.setPrototypeOf(SlowBuffer.prototype, Uint8Array.prototype);
-  Object.setPrototypeOf(SlowBuffer, Uint8Array);
-
   function allocate(size) {
     if (size <= 0)
       return new FastBuffer();
-    return createUnsafeBuffer(size);
+    return new FastBuffer(size);
   }
-
-  FastBuffer.prototype.constructor = Buffer;
-  Buffer.prototype = FastBuffer.prototype;
-
-  Object.defineProperty(Buffer, Symbol.species, {
-    __proto__: null,
-    enumerable: false,
-    configurable: true,
-    get() { return FastBuffer; }
-  });
-
-  // For backwards compatibility.
-  Object.defineProperty(Buffer.prototype, 'parent', {
-    __proto__: null,
-    enumerable: true,
-    get() {
-      if (!(this instanceof Buffer))
-        return undefined;
-      return this.buffer;
-    }
-  });
-  Object.defineProperty(Buffer.prototype, 'offset', {
-    __proto__: null,
-    enumerable: true,
-    get() {
-      if (!(this instanceof Buffer))
-        return undefined;
-      return this.byteOffset;
-    }
-  });
 
   function toInteger(n, defaultVal) {
     n = +n;
@@ -1339,7 +1316,7 @@
     let valLength = val.length;
 
     if (encoding !== undefined) {
-      encoding = encoding.toString().toLowerCase();
+      encoding = `${encoding}`.toLowerCase();
       if (encoding === 'ucs2' || encoding === 'ucs-2' ||
           encoding === 'utf16le' || encoding === 'utf-16le') {
         if (arr.length < 2 || val.length < 2)
@@ -1351,7 +1328,7 @@
       }
     }
 
-    function read (buf, i) {
+    function read(buf, i) {
       if (indexSize === 1) {
         return buf[i];
       } else {
@@ -1418,7 +1395,6 @@
     if (Number.isNaN(byteOffset)) {
       byteOffset = dir ? 0 : (buffer.length || buffer.byteLength);
     }
-    dir = !!dir;  // Cast to bool.
 
     if (typeof val === 'number')
       return dir
@@ -2522,13 +2498,5 @@
   Buffer.prototype.writeDoubleLE = bigEndian ? writeDoubleBackwards : writeDoubleForwards;
   Buffer.prototype.writeDoubleBE = bigEndian ? writeDoubleForwards : writeDoubleBackwards;
 
-  if (typeof window !== 'undefined')
-    Object.assign(window, {
-      Buffer,
-      SlowBuffer
-    });
-  else module.exports = {
-    Buffer,
-    SlowBuffer
-  };
+  window.Buffer = Buffer;
 })();
