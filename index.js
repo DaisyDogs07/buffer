@@ -845,24 +845,22 @@
   }
 
   function byteLengthUtf8(string) {
-    let byteLength = 0;
-    let previous = null;
-    for (let i = 0; i < string.length; ++i) {
+    let len = 0;
+    let prev = null;
+    for (let i = 0; i != string.length; ++i) {
       const c = string.charCodeAt(i);
-      if (c <= 0x7f) {
-        byteLength += 1;
-      } else if (c <= 0x7ff) {
-        byteLength += 2;
-      } else if (c <= 0xffff) {
-        if (previous !== null && (isLeadSurrogate(previous) && isTrailSurrogate(c))) {
-          byteLength += 1;
-        } else byteLength += 3;
-      } else {
-        byteLength += 4;
-      }
-      previous = c;
+      if (c <= 0x7F)
+        len += 1;
+      else if (c <= 0x7FF)
+        len += 2;
+      else if (c <= 0xFFFF) {
+        if (prev !== null && (isLeadSurrogate(prev) && isTrailSurrogate(c)))
+          len += 1;
+        else len += 3;
+      } else len += 4;
+      prev = c;
     }
-    return byteLength;
+    return len;
   };
 
   Buffer.prototype.utf8Write = function utf8Write(string, offset, length) {
@@ -1274,6 +1272,30 @@
           return encodingOps.base64url;
         break;
     }
+  }
+
+  Buffer.byteLength = function byteLength(string, encoding) {
+    if (typeof string !== 'string') {
+      if (ArrayBuffer.isView(string) || string instanceof ArrayBuffer) {
+        return string.byteLength;
+      }
+  
+      throw new ERR_INVALID_ARG_TYPE(
+        'string', ['string', 'Buffer', 'ArrayBuffer'], string
+      );
+    }
+  
+    const len = string.length;
+    if (len === 0)
+      return 0;
+  
+    if (encoding) {
+      const ops = getEncodingOps(encoding);
+      if (ops) {
+        return ops.byteLength(string);
+      }
+    }
+    return byteLengthUtf8(string);
   }
 
   function arrayIndexOf(arr, val, byteOffset, encoding, dir) {
