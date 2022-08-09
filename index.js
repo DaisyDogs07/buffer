@@ -1137,7 +1137,7 @@
     if (length < 0)
       throw new RangeError('Index out of range');
     length = Math.min(this.length - offset, base64ByteLength(string, string.length), length);
-    const decoded = atob(string.replace(/-/g, '+').replace(/_/g, '/'));
+    const decoded = atob(string.trim().replace(/-/g, '+').replace(/_/g, '/'));
     return this.latin1Write(decoded, offset, length);
   }
 
