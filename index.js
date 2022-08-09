@@ -974,7 +974,7 @@
         if (i + 2 <= end) {
           const second = this[i + 1];
           if ((second & 0xC0) === 0x80) {
-            tmp = (first & 0x1F) << 0x6 | (second & 0x3F);
+            const tmp = (first & 0x1F) << 0x6 | (second & 0x3F);
             if (tmp > 0x7F) {
               code = tmp;
               i += 2;
@@ -986,7 +986,7 @@
           const second = this[i + 1];  
           const third = this[i + 2];
           if ((second & 0xC0) === 0x80 && (third & 0xC0) === 0x80) {
-            tmp = (first & 0xF) << 0xC | (second & 0x3F) << 0x6 | (third & 0x3F);
+            const tmp = (first & 0xF) << 0xC | (second & 0x3F) << 0x6 | (third & 0x3F);
             if (tmp > 0x7FF && (tmp < 0xD800 || tmp > 0xDFFF)) {
               code = tmp;
               i += 3;
@@ -998,7 +998,7 @@
         const third = this[i + 2];
         const fourth = this[i + 3];
         if ((second & 0xC0) === 0x80 && (third & 0xC0) === 0x80 && (fourth & 0xC0) === 0x80) {
-          tmp = (first & 0xF) << 0x12 | (second & 0x3F) << 0xC | (third & 0x3F) << 0x6 | (fourth & 0x3F);
+          const tmp = (first & 0xF) << 0x12 | (second & 0x3F) << 0xC | (third & 0x3F) << 0x6 | (fourth & 0x3F);
           if (tmp > 0xFFFF && tmp < 0x110000) {
             code = tmp;
             i += 4;
@@ -1006,7 +1006,7 @@
         }
       }
       if (code === null) {
-        res += String.fromCharCode(0xFFFD);
+        res += '\uFFFD';
         ++i;
         continue;
       }
