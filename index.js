@@ -218,7 +218,7 @@
   }
 
   function validateArray(value, name, minLength = 0) {
-    if (!ArrayIsArray(value)) {
+    if (!Array.isArray(value)) {
       throw new ERR_INVALID_ARG_TYPE(name, 'Array', value);
     }
     if (value.length < minLength) {
