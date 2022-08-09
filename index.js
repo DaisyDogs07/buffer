@@ -22,9 +22,6 @@
 (() => {
   'use strict';
 
-  const kMaxLength = 4294967296;
-  const kStringMaxLength = 536870888;
-
   function ERR_BUFFER_OUT_OF_BOUNDS(name) {
     if (name)
       return new RangeError(`"${name}" is outside of buffer bounds`);
@@ -259,9 +256,6 @@
     }
   }
 
-  const validateOffset = (value, name, min = 0, max = kMaxLength) =>
-    validateInteger(value, name, min, max);
-
   function validateString(value, name) {
     if (typeof value !== 'string')
       throw new ERR_INVALID_ARG_TYPE(name, 'string', value);
@@ -315,18 +309,6 @@
     enumerable: false,
     configurable: true,
     get() { return FastBuffer; }
-  });
-  Object.defineProperty(Buffer, 'kMaxLength', {
-    __proto__: null,
-    enumerable: false,
-    configurable: true,
-    get() { return kMaxLength; }
-  });
-  Object.defineProperty(Buffer, 'kStringMaxLength', {
-    __proto__: null,
-    enumerable: false,
-    configurable: true,
-    get() { return kStringMaxLength; }
   });
 
   // For backwards compatibility.
@@ -576,12 +558,12 @@
       offset = 0;
       end = buf.length;
     } else {
-      validateOffset(offset, 'offset');
+      validateInteger(offset, 'offset');
       // Invalid ranges are not set to a default, so can range check early.
       if (end === undefined) {
         end = buf.length;
       } else {
-        validateOffset(end, 'end', 0, buf.length);
+        validateInteger(end, 'end', 0, buf.length);
       }
       if (offset >= end)
         return buf;
@@ -613,19 +595,12 @@
     return _fill(this, value, offset, end, encoding);
   };
 
-  function assertSize(size) {
-    validateNumber(size, 'size');
-    if (!(size >= 0 && size <= kMaxLength)) {
-      throw new ERR_INVALID_ARG_VALUE.RangeError('size', size);
-    }
-  };
-
   /**
    * Creates a new filled Buffer instance.
    * alloc(size[, fill[, encoding]])
    */
   Buffer.alloc = function alloc(size, fill, encoding) {
-    assertSize(size);
+    validateNumber(size, 'size');
     if (fill !== undefined && fill !== 0 && size > 0) {
       const buf = new FastBuffer(size);
       return _fill(buf, fill, 0, buf.length, encoding);
@@ -638,7 +613,7 @@
    * instance. If `--zero-fill-buffers` is set, will zero-fill the buffer.
    */
   Buffer.allocUnsafe = function allocUnsafe(size) {
-    assertSize(size);
+    validateNumber(size, 'size');
     return allocate(size);
   };
 
@@ -791,7 +766,7 @@
         }
       }
     } else {
-      validateOffset(length, 'length');
+      validateInteger(length, 'length');
     }
 
     const buffer = Buffer.allocUnsafe(length);
@@ -1437,7 +1412,7 @@
 
     // Buffer#write(string, offset[, length][, encoding])
     } else {
-      validateOffset(offset, 'offset', 0, this.length);
+      validateInteger(offset, 'offset', 0, this.length);
 
       const remaining = this.length - offset;
 
@@ -1447,7 +1422,7 @@
         encoding = length;
         length = remaining;
       } else {
-        validateOffset(length, 'length', 0, this.length);
+        validateInteger(length, 'length', 0, this.length);
         if (length > remaining)
           length = remaining;
       }
