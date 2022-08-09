@@ -569,21 +569,13 @@
         return buf;
     }
 
-
-    if (typeof value === 'number') {
-      // OOB check
-      const byteLen = buf.byteLength;
-      const fillLength = end - offset;
-      if (offset > end || fillLength + offset > byteLen)
-        throw new ERR_BUFFER_OUT_OF_BOUNDS();
-
+    if (typeof value === 'number')
       Uint8Array.prototype.fill.call(buf, value, offset, end);
-    } else {
-      const byteLen = buf.byteLength;
-      const fillLength = end - offset;
-      if (offset > end || fillLength + offset > byteLen)
-        throw new ERR_BUFFER_OUT_OF_BOUNDS();
-      buf.write(value, offset, fillLength, encoding);
+    else {
+      if (!Buffer.isBuffer(val))
+        val = Buffer.from(val, encoding)
+      for (let i = 0; i < end - offset; ++i)
+        buf[i + start] = val[i % val.length];
     }
 
     return buf;
