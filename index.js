@@ -572,10 +572,10 @@
     if (typeof value === 'number')
       Uint8Array.prototype.fill.call(buf, value, offset, end);
     else {
-      if (!Buffer.isBuffer(val))
-        val = Buffer.from(val, encoding)
+      if (!Buffer.isBuffer(value))
+        value = Buffer.from(value, encoding)
       for (let i = 0; i < end - offset; ++i)
-        buf[i + start] = val[i % val.length];
+        buf[i + start] = val[i % value.length];
     }
 
     return buf;
