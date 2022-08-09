@@ -576,7 +576,7 @@
         value = Buffer.from(value, encoding);
       const fillLength = end - offset;
       for (let i = 0; i < fillLength; ++i)
-        buf[offset++] = val[i % value.length];
+        buf[offset++] = value[i % value.length];
     }
 
     return buf;
