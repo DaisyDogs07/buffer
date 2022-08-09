@@ -580,8 +580,6 @@
       Uint8Array.prototype.fill.call(buf, value, offset, end);
     } else {
       const byteLen = buf.byteLength;
-      if (length === 0)
-        throw new ERR_INVALID_ARG_VALUE('value', value);
       const fillLength = end - offset;
       if (offset > end || fillLength + offset > byteLen)
         throw new ERR_BUFFER_OUT_OF_BOUNDS();
