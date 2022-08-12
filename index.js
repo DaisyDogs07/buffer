@@ -345,9 +345,14 @@
       if (string.length === 0)
         return new FastBuffer();
     }
-    const ret = Buffer.alloc(ops.byteLength(string));
-    ops.write(ret, string, 0, ret.length);
-    return ret;
+    const length = ops.byteLength(string);
+    let b = new FastBuffer(length);
+    const actual = ops.write(b, string, 0, length);
+    if (actual !== length) {
+      // byteLength() may overestimate. That's a rare case, though.
+      b = new FastBuffer(ret.buffer, 0, actual);
+    }
+    return b;
   }
 
   function fromArrayBuffer(obj, byteOffset, length) {
