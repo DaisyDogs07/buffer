@@ -350,7 +350,7 @@
     const actual = ops.write(b, string, 0, length);
     if (actual !== length) {
       // byteLength() may overestimate. That's a rare case, though.
-      b = new FastBuffer(ret.buffer, 0, actual);
+      b = new FastBuffer(b.buffer, 0, actual);
     }
     return b;
   }
