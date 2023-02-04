@@ -247,11 +247,11 @@
   function validateNumber(value, name, min, max) {
     if (typeof value !== 'number')
       throw new ERR_INVALID_ARG_TYPE(name, 'number', value);
-    if ((min != null && value < min) || (max != null && value > max) ||
-        ((min != null || max != null) && Number.isNaN(value))) {
+    if ((min && value < min) || (max && value > max) ||
+        ((min || max) && Number.isNaN(value))) {
       throw new ERR_OUT_OF_RANGE(
         name,
-        `${min != null ? `>= ${min}` : ''}${min != null && max != null ? ' && ' : ''}${max != null ? `<= ${max}` : ''}`,
+        `${min ? `>= ${min}` : ''}${min && max ? ' && ' : ''}${max ? `<= ${max}` : ''}`,
         value);
     }
   }
