@@ -135,14 +135,6 @@
     return new TypeError(`The ${type} '${name}' ${reason}. Received ${inspected}`);
   }
 
-  ERR_INVALID_ARG_VALUE.RangeError = function ERR_INVALID_ARG_VALUE(name, value, reason = 'is invalid') {
-    let inspected = inspect(value);
-    if (inspected.length > 128)
-      inspected = `${inspected.slice(0, 128)}...`;
-    const type = name.includes('.') ? 'property' : 'argument';
-    return new RangeError(`The ${type} '${name}' ${reason}. Received ${inspected}`);
-  }
-
   function ERR_INVALID_BUFFER_SIZE(s) {
     return new RangeError('Buffer size must be a multiple of ' + s);
   }
