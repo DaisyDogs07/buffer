@@ -170,7 +170,7 @@
       received += 'n';
     } else received = inspect(input);
     msg += ` It must be ${range}. Received ${received}`;
-    return msg;
+    return new RangeError(msg);
   }
 
   function ERR_UNKNOWN_ENCODING(e) {
