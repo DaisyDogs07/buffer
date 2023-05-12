@@ -1564,7 +1564,6 @@
       } else out[didx++] = kBase64EncMap[(data.charCodeAt(sidx) << 4) & 63];
     }
 
-    // add padding
     while (out.length % 4 !== 0)
       out[didx++] = 0x3D;
     return out.map(c => String.fromCharCode(c)).join('');
@@ -1778,16 +1777,6 @@
     return nb;
   }
 
-  /**
-   * The Buffer() constructor is deprecated in documentation and should not be
-   * used moving forward. Rather, developers should use one of the three new
-   * factory APIs: Buffer.from(), Buffer.allocUnsafe() or Buffer.alloc() based on
-   * their specific needs. There is no runtime deprecation because of the extent
-   * to which the Buffer constructor is used in the ecosystem currently -- a
-   * runtime deprecation would introduce too much breakage at this time. It's not
-   * likely that the Buffer constructors would ever actually be removed.
-   * Deprecation Code: DEP0005
-   */
   function Buffer(arg, encodingOrOffset, length) {
     showFlaggedDeprecation();
     if (typeof arg === 'number') {
@@ -1805,14 +1794,6 @@
     get() { return FastBuffer; }
   });
 
-  /**
-   * Functionally equivalent to Buffer(arg, encoding) but throws a TypeError
-   * if value is a number.
-   * Buffer.from(str[, encoding])
-   * Buffer.from(array)
-   * Buffer.from(buffer)
-   * Buffer.from(arrayBuffer[, byteOffset[, length]])
-   */
   Buffer.from = function from(value, encodingOrOffset, length) {
     if (typeof value === 'string')
       return fromString(value, encodingOrOffset);
@@ -1845,14 +1826,6 @@
     );
   };
 
-  /**
-   * Creates the Buffer as a copy of the underlying ArrayBuffer of the view
-   * rather than the contents of the view.
-   * @param {TypedArray} view
-   * @param {number} [offset]
-   * @param {number} [length]
-   * @returns {Buffer}
-   */
   Buffer.copyBytesFrom = function copyBytesFrom(view, offset, length) {
     if (!isTypedArray(view))
       throw new ERR_INVALID_ARG_TYPE('view', ['TypedArray'], view);
@@ -1903,13 +1876,6 @@
   Buffer.allocUnsafeSlow = function allocUnsafeSlow(size) {
     return new FastBuffer(size);
   };
-
-  function SlowBuffer(length) {
-    return new FastBuffer(length);
-  }
-
-  Object.setPrototypeOf(SlowBuffer.prototype, Uint8Array.prototype);
-  Object.setPrototypeOf(SlowBuffer, Uint8Array);
 
   function allocate(size) {
     if (size <= 0)
