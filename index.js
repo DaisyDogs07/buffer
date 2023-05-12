@@ -356,7 +356,8 @@
   }
   
   function slowCases(enc) {
-    switch (`${enc}`.toLowerCase()) {
+    enc = `${enc}`.toLowerCase();
+    switch (enc) {
       case 'ascii':
         return 'ascii';
       case '':
