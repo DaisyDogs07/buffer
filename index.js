@@ -361,12 +361,12 @@
       case 'utf16le':
       case 'utf-16le':
         return 'utf16le';
+      case 'latin1':
       case 'binary':
         return 'latin1';
       case 'base64':
       case 'base64url':
       case 'hex':
-      case 'latin1':
         return enc;
     }
   }
@@ -2117,11 +2117,11 @@
       case 'utf-16le':
         return encodingOps.utf16le;
       case 'binary':
+      case 'latin1':
         return encodingOps.latin1;
       case 'base64':
       case 'base64url':
       case 'hex':
-      case 'latin1':
         return encodingOps[encoding];
     }
   }
