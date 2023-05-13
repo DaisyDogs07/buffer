@@ -1301,7 +1301,7 @@
       end = start;
     let res = '';
     for (let i = start; i !== end; ++i)
-      res = String.fromCharCode(this[i] & 0x7f);
+      res += String.fromCharCode(this[i] & 0x7f);
     return res;
   }
 
@@ -1641,7 +1641,7 @@
     return base64Encode(this.toString('latin1', start, end));
   }
 
-  Buffer.prototype.base64Write = function base64Write(string, offset = 0) {
+  Buffer.prototype.base64Write = function base64Write(string, offset = 0, length = base64ByteLength(string, string.length)) {
     if (typeof string !== 'string')
       throw new TypeError('argument must be a string');
     if (offset < 0 || length < 0)
@@ -1655,8 +1655,8 @@
     return this.base64Slice(start, end).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
   }
 
-  Buffer.prototype.base64urlWrite = function base64urlWrite(string, offset = 0) {
-    return this.base64Write(string.replace(/-/g, '+').replace(/_/g, '/'), offset);
+  Buffer.prototype.base64urlWrite = function base64urlWrite(string, offset = 0, length = base64ByteLength(string, string.length)) {
+    return this.base64Write(string.replace(/-/g, '+').replace(/_/g, '/'), offset, length);
   }
 
   Buffer.prototype.hexSlice = function hexSlice(start = 0, end = this.length) {
