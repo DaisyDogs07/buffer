@@ -350,8 +350,6 @@
   function slowCases(enc) {
     enc = `${enc}`.toLowerCase();
     switch (enc) {
-      case 'ascii':
-        return 'ascii';
       case '':
       case 'utf8':
       case 'utf-8':
@@ -364,6 +362,7 @@
       case 'latin1':
       case 'binary':
         return 'latin1';
+      case 'ascii':
       case 'base64':
       case 'base64url':
       case 'hex':
@@ -2106,8 +2105,6 @@
   };
   function getEncodingOps(encoding) {
     switch (encoding + '') {
-      case 'ascii':
-        return encodingOps.ascii;
       case 'utf8':
       case 'utf-8':
         return encodingOps.utf8;
@@ -2119,6 +2116,7 @@
       case 'binary':
       case 'latin1':
         return encodingOps.latin1;
+      case 'ascii':
       case 'base64':
       case 'base64url':
       case 'hex':
