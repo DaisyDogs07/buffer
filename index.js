@@ -211,6 +211,9 @@
       throw new ERR_INVALID_ARG_TYPE(name, 'string', value);
   }
 
+  const validateOffset = (value, name, min = 0, max = Number.MAX_SAFE_INTEGER) =>
+    validateInteger(value, name, min, max);
+
   class FastBuffer extends Uint8Array {
     constructor(bufferOrLength, byteOffset, length) {
       super(bufferOrLength, byteOffset, length);
@@ -1861,6 +1864,7 @@
   Object.setPrototypeOf(Buffer, Uint8Array);
 
   Buffer.alloc = function alloc(size, fill, encoding) {
+    validateNumber(size, 'size', 0, Number.MAX_SAFE_INTEGER);
     if (fill !== undefined && fill !== 0 && size > 0) {
       const buf = new FastBuffer(size);
       return _fill(buf, fill, 0, buf.length, encoding);
@@ -1869,10 +1873,12 @@
   };
 
   Buffer.allocUnsafe = function allocUnsafe(size) {
+    validateNumber(size, 'size', 0, Number.MAX_SAFE_INTEGER);
     return allocate(size);
   };
 
   Buffer.allocUnsafeSlow = function allocUnsafeSlow(size) {
+    validateNumber(size, 'size', 0, Number.MAX_SAFE_INTEGER);
     return new FastBuffer(size);
   };
 
@@ -1981,12 +1987,12 @@
     if (list.length === 0)
       return new FastBuffer();
 
-    if (!length) {
+    if (length === undefined) {
       length = 0;
       for (let i = 0; i < list.length; i++)
         if (list[i].length)
           length += list[i].length;
-    }
+    } else validateOffset(length, 'length');
 
     const buffer = Buffer.allocUnsafe(length);
     let pos = 0;
@@ -2236,15 +2242,19 @@
 
     if (targetStart === undefined)
       targetStart = 0;
+    else validateOffset(targetStart, 'targetStart');
   
     if (targetEnd === undefined)
       targetEnd = target.length;
+    else validateOffset(targetEnd, 'targetEnd', 0, target.length);
   
     if (sourceStart === undefined)
       sourceStart = 0;
+    else validateOffset(sourceStart, 'sourceStart');
   
     if (sourceEnd === undefined)
       sourceEnd = this.length;
+    else validateOffset(sourceEnd, 'sourceEnd', 0, this.length);
 
     if (sourceStart >= sourceEnd)
       return (targetStart >= targetEnd ? 0 : -1);
@@ -2345,8 +2355,10 @@
       offset = 0;
       end = buf.length;
     } else {
+      validateOffset(offset, 'offset');
       if (end === undefined)
         end = buf.length;
+      else validateOffset(end, 'end', 0, buf.length);
       if (offset >= end)
         return buf;
     }
@@ -2379,6 +2391,7 @@
       length = this.length;
       offset = 0;
     } else {
+      validateOffset(offset, 'offset', 0, this.length);
       const remaining = this.length - offset;
 
       if (length === undefined)
@@ -2387,6 +2400,7 @@
         encoding = length;
         length = remaining;
       } else {
+        validateOffset(length, 'length', 0, this.length);
         if (length > remaining)
           length = remaining;
       }
