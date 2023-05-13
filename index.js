@@ -1697,8 +1697,8 @@
     'buffer',
     'latin1'
   ];
-  const encodingsMap = { __proto__: null };
-  for (let i = 0; i < encodings.length; ++i)
+  const encodingsMap = {};
+  for (let i = 0; i !== encodings.length; ++i)
     encodingsMap[encodings[i]] = i;
 
   let bufferWarningAlreadyEmitted = false;
