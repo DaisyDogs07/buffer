@@ -1882,6 +1882,14 @@
     return new FastBuffer(size);
   };
 
+  function SlowBuffer(length) {
+    assertSize(length);
+    return new FastBuffer(length);
+  }
+  
+  Object.setPrototypeOf(SlowBuffer.prototype, Uint8Array.prototype);
+  Object.setPrototypeOf(SlowBuffer, Uint8Array);
+
   function allocate(size) {
     if (size <= 0)
       return new FastBuffer();
@@ -2418,7 +2426,7 @@
   Buffer.prototype.toJSON = function toJSON() {
     if (this.length > 0) {
       const data = new Array(this.length);
-      for (let i = 0; i < this.length; ++i)
+      for (let i = 0; i !== this.length; ++i)
         data[i] = this[i];
       return { type: 'Buffer', data };
     }
@@ -2491,5 +2499,75 @@
 
   Buffer.prototype.toLocaleString = Buffer.prototype.toString;
 
-  window.Buffer = Buffer;
+  function isUtf8(input) {
+    if (!isTypedArray(input) && !isAnyArrayBuffer(input))
+      throw new ERR_INVALID_ARG_TYPE('input', ['TypedArray', 'Buffer'], input);
+    
+    let len = input.length;
+    let pos = 0;
+    let code_point = 0;
+    while (pos < len) {
+      let next_pos = pos + 1;
+      let byte = input[pos];
+
+      while (byte < 0b10000000) {
+        if (++pos === len)
+          return true;
+        byte = input[pos];
+      }
+
+      if ((byte & 0b11100000) === 0b11000000) {
+        next_pos = pos + 2;
+        if (next_pos > len || (input[pos + 1] & 0b11000000) !== 0b10000000)
+          return false;
+        code_point = (byte & 0b00011111) << 6 | (input[pos + 1] & 0b00111111);
+        if ((code_point < 0x80) || (0x7FF < code_point))
+          return false;
+      } else if ((byte & 0b11110000) === 0b11100000) {
+        next_pos = pos + 3;
+        if (next_pos > len)
+          return false;
+        if ((input[pos + 1] & 0b11000000) !== 0b10000000 ||
+            (input[pos + 2] & 0b11000000) !== 0b10000000)
+          return false;
+        code_point = (byte & 0b00001111) << 12 |
+                    (input[pos + 1] & 0b00111111) << 6 |
+                    (input[pos + 2] & 0b00111111);
+        if ((code_point < 0x800) || (0xFFFF < code_point) ||
+            (0xD7FF < code_point && code_point < 0xE000))
+          return false;
+      } else if ((byte & 0b11111000) === 0b11110000) {
+        next_pos = pos + 4;
+        if (next_pos > len)
+          return false;
+        if ((input[pos + 1] & 0b11000000) !== 0b10000000 ||
+            (input[pos + 2] & 0b11000000) !== 0b10000000 ||
+            (input[pos + 3] & 0b11000000) !== 0b10000000)
+          return false;
+        code_point = (byte & 0b00000111) << 18 | (input[pos + 1] & 0b00111111) << 12 |
+          (input[pos + 2] & 0b00111111) << 6 | (input[pos + 3] & 0b00111111);
+        if (code_point <= 0xFFFF || 0x10FFFF < code_point)
+          return false;
+      } else return false;
+      pos = next_pos;
+    }
+    return true;
+  }
+  
+  function isAscii(input) {
+    if (!isTypedArray(input) && !isAnyArrayBuffer(input))
+      throw new ERR_INVALID_ARG_TYPE('input', ['ArrayBuffer', 'Buffer', 'TypedArray'], input);
+
+    for (let pos = 0; pos !== len; ++pos)
+      if (input[pos] >= 0b10000000)
+        return false;
+    return true;
+  }
+
+  Object.assign(window, {
+    Buffer,
+    SlowBuffer,
+    isUtf8,
+    isAscii
+  });
 })();
