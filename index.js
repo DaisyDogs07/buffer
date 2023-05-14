@@ -1690,6 +1690,9 @@
     return length;
   }
 
+  Buffer.poolSize = 8 * 1024;
+  let poolSize, poolOffset, allocPool;
+
   const encodings = [
     'ascii',
     'utf8',
@@ -1703,6 +1706,20 @@
   const encodingsMap = {};
   for (let i = 0; i !== encodings.length; ++i)
     encodingsMap[encodings[i]] = i;
+  
+  function createPool() {
+    poolSize = Buffer.poolSize;
+    allocPool = new FastBuffer(poolSize).buffer;
+    poolOffset = 0;
+  }
+  createPool();
+
+  function alignPool() {
+    if (poolOffset & 0x7) {
+      poolOffset |= 0x7;
+      poolOffset++;
+    }
+  }
 
   let bufferWarningAlreadyEmitted = false;
   const bufferWarning = 'Buffer() is deprecated due to security and usability ' +
@@ -1893,15 +1910,27 @@
   function allocate(size) {
     if (size <= 0)
       return new FastBuffer();
+    if (size < (Buffer.poolSize >>> 1)) {
+      if (size > (poolSize - poolOffset))
+        createPool();
+      const b = new FastBuffer(allocPool, poolOffset, size);
+      poolOffset += size;
+      alignPool();
+      return b;
+    }
     return new FastBuffer(size);
   }
 
   function fromStringFast(string, ops) {
     const length = ops.byteLength(string);
-    let b = new FastBuffer(length);
+    if (length > (poolSize - poolOffset))
+      createPool();
+    let b = new FastBuffer(allocPool, poolOffset, length);
     const actual = ops.write(b, string, 0, length);
     if (actual !== length)
-      return new FastBuffer(b.buffer, 0, actual);
+      b = new FastBuffer(allocPool, poolOffset, actual);
+    poolOffset += actual;
+    alignPool();
     return b;
   }
 
@@ -1952,6 +1981,15 @@
   function fromArrayLike(obj) {
     if (obj.length <= 0)
       return new FastBuffer();
+    if (obj.length < (Buffer.poolSize >>> 1)) {
+      if (obj.length > (poolSize - poolOffset))
+        createPool();
+      const b = new FastBuffer(allocPool, poolOffset, obj.length);
+      Uint8Array.prototype.set(b, obj, 0);
+      poolOffset += obj.length;
+      alignPool();
+      return b;
+    }
     return new FastBuffer(obj);
   }
 
