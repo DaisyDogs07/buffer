@@ -2548,42 +2548,42 @@
       let next_pos = pos + 1;
       let byte = input[pos];
 
-      while (byte < 0b10000000) {
+      while (byte < 0x80) {
         if (++pos === len)
           return true;
         byte = input[pos];
       }
 
-      if ((byte & 0b11100000) === 0b11000000) {
+      if ((byte & 0xE0) === 0xC0) {
         next_pos = pos + 2;
-        if (next_pos > len || (input[pos + 1] & 0b11000000) !== 0b10000000)
+        if (next_pos > len || (input[pos + 1] & 0xC0) !== 0x80)
           return false;
-        code_point = (byte & 0b00011111) << 6 | (input[pos + 1] & 0b00111111);
+        code_point = (byte & 0x1F) << 6 | (input[pos + 1] & 0x3F);
         if ((code_point < 0x80) || (0x7FF < code_point))
           return false;
-      } else if ((byte & 0b11110000) === 0b11100000) {
+      } else if ((byte & 0xF0) === 0xE0) {
         next_pos = pos + 3;
         if (next_pos > len)
           return false;
-        if ((input[pos + 1] & 0b11000000) !== 0b10000000 ||
-            (input[pos + 2] & 0b11000000) !== 0b10000000)
+        if ((input[pos + 1] & 0xC0) !== 0x80 ||
+            (input[pos + 2] & 0xC0) !== 0x80)
           return false;
-        code_point = (byte & 0b00001111) << 12 |
-                    (input[pos + 1] & 0b00111111) << 6 |
-                    (input[pos + 2] & 0b00111111);
+        code_point = (byte & 0x0F) << 12 |
+                    (input[pos + 1] & 0x3F) << 6 |
+                    (input[pos + 2] & 0x3F);
         if ((code_point < 0x800) || (0xFFFF < code_point) ||
             (0xD7FF < code_point && code_point < 0xE000))
           return false;
-      } else if ((byte & 0b11111000) === 0b11110000) {
+      } else if ((byte & 0xF8) === 0xF0) {
         next_pos = pos + 4;
         if (next_pos > len)
           return false;
-        if ((input[pos + 1] & 0b11000000) !== 0b10000000 ||
-            (input[pos + 2] & 0b11000000) !== 0b10000000 ||
-            (input[pos + 3] & 0b11000000) !== 0b10000000)
+        if ((input[pos + 1] & 0xC0) !== 0x80 ||
+            (input[pos + 2] & 0xC0) !== 0x80 ||
+            (input[pos + 3] & 0xC0) !== 0x80)
           return false;
-        code_point = (byte & 0b00000111) << 18 | (input[pos + 1] & 0b00111111) << 12 |
-          (input[pos + 2] & 0b00111111) << 6 | (input[pos + 3] & 0b00111111);
+        code_point = (byte & 0x07) << 18 | (input[pos + 1] & 0x3F) << 12 |
+          (input[pos + 2] & 0x3F) << 6 | (input[pos + 3] & 0x3F);
         if (code_point <= 0xFFFF || 0x10FFFF < code_point)
           return false;
       } else return false;
@@ -2597,7 +2597,7 @@
       throw new ERR_INVALID_ARG_TYPE('input', ['ArrayBuffer', 'Buffer', 'TypedArray'], input);
 
     for (let pos = 0; pos !== len; ++pos)
-      if (input[pos] >= 0b10000000)
+      if (input[pos] > 0x7F)
         return false;
     return true;
   }
