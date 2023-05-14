@@ -1900,7 +1900,7 @@
   };
 
   function SlowBuffer(length) {
-    validateNumber(size, 'size', 0, Number.MAX_SAFE_INTEGER);
+    validateNumber(length, 'size', 0, Number.MAX_SAFE_INTEGER);
     return new FastBuffer(length);
   }
   
