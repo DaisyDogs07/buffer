@@ -2506,7 +2506,7 @@
     const len = this.length;
     if (len % 2 !== 0)
       throw new ERR_INVALID_BUFFER_SIZE('16-bits');
-    for (let i = 0; i < len; i += 2)
+    for (let i = 0; i !== len; i += 2)
       swap(this, i, i + 1);
     return this;
   };
@@ -2515,7 +2515,7 @@
     const len = this.length;
     if (len % 4 !== 0)
       throw new ERR_INVALID_BUFFER_SIZE('32-bits');
-    for (let i = 0; i < len; i += 4) {
+    for (let i = 0; i !== len; i += 4) {
       swap(this, i, i + 3);
       swap(this, i + 1, i + 2);
     }
@@ -2526,7 +2526,7 @@
     const len = this.length;
     if (len % 8 !== 0)
       throw new ERR_INVALID_BUFFER_SIZE('64-bits');
-    for (let i = 0; i < len; i += 8) {
+    for (let i = 0; i !== len; i += 8) {
       swap(this, i, i + 7);
       swap(this, i + 1, i + 6);
       swap(this, i + 2, i + 5);
@@ -2541,14 +2541,14 @@
     if (!isTypedArray(input) && !isAnyArrayBuffer(input))
       throw new ERR_INVALID_ARG_TYPE('input', ['TypedArray', 'Buffer'], input);
     
-    let len = input.length;
+    const len = input.length;
     let pos = 0;
     let code_point = 0;
     while (pos < len) {
       let next_pos = pos + 1;
       let byte = input[pos];
 
-      while (byte < 0x80) {
+      while (byte <= 0x7F) {
         if (++pos === len)
           return true;
         byte = input[pos];
