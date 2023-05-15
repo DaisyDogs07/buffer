@@ -270,7 +270,7 @@
     return normalizeCompareVal(0, sourceLen, targetLen);
   }
 
-  function compareOffset(source, target, targetStart = 0, sourceStart = 0, targetEnd = buf1.length, sourceEnd = buf2.length) {
+  function compareOffset(source, target, targetStart, sourceStart, targetEnd, sourceEnd) {
     const sourceLen = sourceEnd - sourceStart;
     const targetLen = targetEnd - targetStart;
     const len = Math.min(sourceLen, targetLen, source.length - sourceStart);
@@ -1700,10 +1700,9 @@
     'base64url',
     'utf16le',
     'hex',
-    'buffer',
     'latin1'
   ];
-  const encodingsMap = {};
+  const encodingsMap = { __proto__: null };
   for (let i = 0; i !== encodings.length; ++i)
     encodingsMap[encodings[i]] = i;
   
