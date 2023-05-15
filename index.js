@@ -239,20 +239,6 @@
     return len;
   };
 
-  function normalizeCompareVal(val, aLen, bLen) {
-    if (val === 0) {
-      if (aLen > bLen)
-        return 1;
-      else if (aLen < bLen)
-        return -1;
-    } else {
-      if (val > 0)
-        return 1;
-      else return -1;
-    }
-    return val;
-  }
-
   function _compare(source, target) {
     const sourceLen = source.length;
     const targetLen = target.length;
@@ -267,7 +253,11 @@
           return -1;
         }
       }
-    return normalizeCompareVal(0, sourceLen, targetLen);
+    if (sourceLen > targetLen)
+      return 1;
+    if (sourceLen < targetLen)
+      return -1;
+    return 0;
   }
 
   function compareOffset(source, target, targetStart, sourceStart, targetEnd, sourceEnd) {
@@ -284,7 +274,11 @@
           return -1;
         }
       }
-    return normalizeCompareVal(0, sourceLen, targetLen);
+    if (sourceLen > targetLen)
+      return 1;
+    if (sourceLen < targetLen)
+      return -1;
+    return 0;
   }
 
   function indexOfBuffer(buffer, val, byteOffset, encoding, dir) {
@@ -304,7 +298,7 @@
     }
 
     function read(buf, i) {
-      return indexSize === 1 ? buf[i] : buf.readUInt16BE(i * indexSize);
+      return indexSize === 1 ? buf[i] : buf.readUInt16BE(i * 2);
     }
 
     let i;
