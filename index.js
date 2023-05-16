@@ -1630,6 +1630,10 @@
     return out.map(c => String.fromCharCode(c)).join('');
   }
 
+  function base64Clean(str) {
+    return str.split('=')[0].trim().replace(/[^+/0-9A-Za-z-_]/g, '');
+  }
+
   Buffer.prototype.base64Slice = function base64Slice(start = 0, end = this.length) {
     if (start < 0 || start > this.length || end > this.length)
       throw new RangeError('Index out of range');
@@ -1638,21 +1642,21 @@
     return base64Encode(this.toString('latin1', start, end));
   }
 
-  Buffer.prototype.base64Write = function base64Write(string, offset = 0, length = base64ByteLength(string, string.length)) {
+  Buffer.prototype.base64Write = function base64Write(string, offset = 0, length = base64ByteLength(base64Clean(string), string.length)) {
     if (typeof string !== 'string')
       throw new TypeError('argument must be a string');
     if (offset < 0 || length < 0)
       throw new RangeError('Index out of range');
     if (offset > this.length)
       throw new RangeError('"offset" is outside of buffer bounds');
-    return this.latin1Write(base64Decode(string.trim().replace(/[^A-Za-z0-9\+\/\=]/g, '').replace(/=[\S\s]*?$/, '')), offset);
+    return this.latin1Write(base64Decode(base64Clean(string)), offset, length);
   }
 
   Buffer.prototype.base64urlSlice = function base64urlSlice(start = 0, end = this.length) {
     return this.base64Slice(start, end).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
   }
 
-  Buffer.prototype.base64urlWrite = function base64urlWrite(string, offset = 0, length = base64ByteLength(string, string.length)) {
+  Buffer.prototype.base64urlWrite = function base64urlWrite(string, offset = 0, length = base64ByteLength(base64Clean(string), string.length)) {
     return this.base64Write(string.replace(/-/g, '+').replace(/_/g, '/'), offset, length);
   }
 
@@ -2405,16 +2409,16 @@
 
     if (typeof value === 'number') {
       const byteLen = new Uint8Array(buf.buffer).byteLength;
-      const fillLength = end - offset;
-      if (offset > end || fillLength + offset > byteLen)
+      const fillLen = end - offset;
+      if (offset > end || fillLen + offset > byteLen)
         throw new ERR_BUFFER_OUT_OF_BOUNDS();
 
       Uint8Array.prototype.fill.call(buf, value, offset, end);
     } else {
       if (!Buffer.isBuffer(value))
         value = Buffer.from(value, encoding);
-      const fillLength = end - offset;
-      for (let i = 0; i !== fillLength; ++i)
+      const fillLen = end - offset;
+      for (let i = 0; i !== fillLen; ++i)
         buf[offset++] = value[i % value.length];
     }
 
@@ -2556,9 +2560,8 @@
           return false;
       } else if ((byte & 0xF0) === 0xE0) {
         next_pos = pos + 3;
-        if (next_pos > len)
-          return false;
-        if ((input[pos + 1] & 0xC0) !== 0x80 ||
+        if (next_pos > len ||
+            (input[pos + 1] & 0xC0) !== 0x80 ||
             (input[pos + 2] & 0xC0) !== 0x80)
           return false;
         code_point = (byte & 0x0F) << 12 |
@@ -2569,9 +2572,8 @@
           return false;
       } else if ((byte & 0xF8) === 0xF0) {
         next_pos = pos + 4;
-        if (next_pos > len)
-          return false;
-        if ((input[pos + 1] & 0xC0) !== 0x80 ||
+        if (next_pos > len ||
+            (input[pos + 1] & 0xC0) !== 0x80 ||
             (input[pos + 2] & 0xC0) !== 0x80 ||
             (input[pos + 3] & 0xC0) !== 0x80)
           return false;
@@ -2595,7 +2597,7 @@
     return true;
   }
 
-  Object.assign(window, {
+  Object.assign(module.exports, {
     Buffer,
     SlowBuffer,
     isUtf8,
