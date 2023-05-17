@@ -23,9 +23,12 @@
   'use strict';
 
   function ERR_BUFFER_OUT_OF_BOUNDS(name) {
+    let err;
     if (name)
-      return new RangeError(`"${name}" is outside of buffer bounds`);
-    return new RangeError('Attempt to access memory outside buffer bounds');
+      err = new RangeError(`"${name}" is outside of buffer bounds`);
+    else err = new RangeError('Attempt to access memory outside buffer bounds');
+    err.code = 'ERR_BUFFER_OUT_OF_BOUNDS';
+    return err;
   }
 
   const classRegExp = /^([A-Z][a-z0-9]*)+$/;
@@ -124,7 +127,9 @@
 
     msg += `. Received ${determineSpecificType(actual)}`;
 
-    return new TypeError(msg);
+    const err = new TypeError(msg);
+    err.code = 'ERR_INVALID_ARG_TYPE';
+    return err;
   }
 
   function ERR_INVALID_ARG_VALUE(name, value, reason = 'is invalid') {
@@ -132,11 +137,15 @@
     if (inspected.length > 128)
       inspected = `${inspected.slice(0, 128)}...`;
     const type = name.includes('.') ? 'property' : 'argument';
-    return new TypeError(`The ${type} '${name}' ${reason}. Received ${inspected}`);
+    const err = new TypeError(`The ${type} '${name}' ${reason}. Received ${inspected}`);
+    err.code = 'ERR_INVALID_ARG_VALUE';
+    return err;
   }
 
   function ERR_INVALID_BUFFER_SIZE(s) {
-    return new RangeError('Buffer size must be a multiple of ' + s);
+    const err = new RangeError('Buffer size must be a multiple of ' + s);
+    err.code = 'ERR_INVALID_BUFFER_SIZE';
+    return err;
   }
 
   function addNumericalSeparator(val) {
@@ -162,11 +171,15 @@
       received += 'n';
     } else received = inspect(input);
     msg += ` It must be ${range}. Received ${received}`;
-    return new RangeError(msg);
+    const err = new RangeError(msg);
+    err.code = 'ERR_OUT_OF_RANGE';
+    return err;
   }
 
   function ERR_UNKNOWN_ENCODING(e) {
-    return new TypeError('Unknown encoding: ' + e);
+    const err = new TypeError('Unknown encoding: ' + e);
+    err.code = 'ERR_UNKNOWN_ENCODING';
+    return err;
   }
 
   function validateArray(value, name, minLength = 0) {
