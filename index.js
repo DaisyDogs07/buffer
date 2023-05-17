@@ -281,59 +281,121 @@
     return 0;
   }
 
-  function indexOfBuffer(buffer, val, byteOffset, encoding, dir) {
-    let indexSize = 1;
-    let bufLen = buffer.length;
-    let valLen = val.length;
-    if (encoding !== undefined) {
-      encoding = normalizeEncoding(encoding);
-      if (encoding === 'utf16le') {
-        if (buffer.length < 2 || val.length < 2)
-          return -1;
-        indexSize = 2;
-        bufLen /= 2;
-        valLen /= 2;
-        byteOffset /= 2;
-      }
+  function indexOfOffset(length, offset, needleLen, dir) {
+    if (offset < 0) {
+      if (offset + length >= 0)
+        return length + offset;
+      else if (dir || needleLen === 0)
+        return 0;
+      else return -1;
+    } else {
+      if (offset + needleLen <= length)
+        return offset;
+      else if (needleLen === 0)
+        return length;
+      else if (dir)
+        return -1;
+      else return length - 1;
     }
+  }
+
+  function searchBuffer(haystack, haystackLen, needle, needleLen, startIndex, indexLength, dir) {
+    if (haystackLen < needleLen)
+      return haystackLen;
 
     function read(buf, i) {
-      return indexSize === 1 ? buf[i] : buf.readUInt16BE(i * 2);
+      return indexLength === 1 ? buf[i] : buf.readUInt16BE(i * 2);
     }
 
-    let i;
     if (dir) {
-      let foundIndex = -1;
-      for (i = byteOffset; i !== bufLen - valLen; ++i) {
-        if (read(buffer, i) === read(val, 0)) {
-          foundIndex = i;
-          break;
-        }
-      }
-      if (foundIndex >= 0) {
-        for (let j = 1; j !== valLen; ++j) {
-          if (read(buffer, i + j) !== read(val, j)) {
-            foundIndex = -1;
-            break;
+      const end = haystackLen - needleLen;
+      for (let i = startIndex; i <= end; ++i) {
+        if (read(haystack, i) === read(needle, 0)) {
+          let matches = true;
+          for (let j = 1; j !== needleLen; ++j) {
+            if (read(haystack, i + j) !== read(needle, j)) {
+              matches = false;
+              break;
+            }
           }
+          if (matches)
+            return i;
         }
-        if (foundIndex >= 0)
-          return foundIndex * indexSize;
       }
     } else {
-      if (byteOffset + valLen > bufLen)
-        byteOffset = bufLen - valLen;
-      for (i = byteOffset; i !== 0; --i) {
-        let found = true;
-        for (let j = 0; j !== valLen; ++j) {
-          if (read(buffer, i + j) !== read(val, j)) {
-            found = false;
-            break;
+      const start = startIndex - (indexLength - 1);
+      for (let i = start; i >= 0; --i) {
+        if (read(haystack, i) === read(needle, 0)) {
+          let matches = true;
+          for (let j = 1; j !== needleLen; ++j) {
+            if (read(haystack, i + j) !== read(needle, j)) {
+              matches = false;
+              break;
+            }
           }
+          if (matches)
+            return i;
         }
-        if (found)
-          return i * indexSize;
       }
+    }
+    return haystackLen;
+  }
+
+  function indexOfBuffer(buffer, value, byteOffset, encoding, dir) {
+    byteOffset = indexOfOffset(buffer.byteLength, byteOffset, value.length, dir);
+    if (value.byteLength === 0)
+      return byteOffset;
+    if (buffer.byteLength === 0 || byteOffset <= -1 ||
+        (dir && value.byteLength + byteOffset > buffer.byteLength) ||
+        value.byteLength > buffer.byteLength)
+      return -1;
+    let isTwoByte = false;
+    if (encoding === encodingsMap.utf16le) {
+      if (buffer.byteLength < 2 || value.byteLength < 2)
+        return -1;
+      isTwoByte = true;
+    }
+    let res;
+    if (isTwoByte) {
+      res = searchBuffer(
+        buffer,
+        buffer.byteLength / 2,
+        value,
+        value.byteLength / 2,
+        byteOffset / 2,
+        2,
+        dir
+      );
+      res *= 2;
+    } else {
+      res = searchBuffer(
+        buffer,
+        buffer.byteLength,
+        value,
+        value.byteLength,
+        byteOffset,
+        1,
+        dir
+      );
+    }
+    if (res === buffer.byteLength)
+      return -1;
+    return res;
+  }
+
+  function indexOfNumber(buffer, value, byteOffset, dir) {
+    byteOffset = indexOfOffset(buffer.byteLength, byteOffset, 1, dir);
+    if (byteOffset <= -1 || buffer.byteLength === 0)
+      return -1;
+    value &= 0xFF;
+    if (dir) {
+      for (let i = byteOffset; i !== buffer.byteLength; ++i)
+        if (buffer[i] === value)
+          return i;
+    } else {
+      for (let i = byteOffset; i >= 0; --i)
+        if (buffer[i] === value)
+          return i;
     }
     return -1;
   }
@@ -1291,35 +1353,67 @@
   Buffer.prototype.writeFloatLE = bigEndian ? writeFloatBackwards : writeFloatForwards;
   Buffer.prototype.writeFloatBE = bigEndian ? writeFloatForwards : writeFloatBackwards;
 
-  Buffer.prototype.asciiSlice = function asciiSlice(start = 0, end = this.length) {
-    if (start < 0 || start > this.length || end > this.length)
-      throw new RangeError('Index out of range');
-    if (end < start)
-      end = start;
+  Buffer.prototype.asciiSlice = function asciiSlice(start, end) {
+    if (typeof start === 'undefined')
+      start = 0;
+    else {
+      start >>>= 0;
+      if (start < 0 || start > this.length)
+        throw new RangeError('Index out of range');
+    }
+    if (typeof end === 'undefined')
+      end = this.length;
+    else {
+      end >>>= 0;
+      if (end < 0 || end > this.length)
+        throw new RangeError('Index out of range');
+    }
     let res = '';
     for (let i = start; i !== end; ++i)
       res += String.fromCharCode(this[i] & 0x7f);
     return res;
   }
 
-  Buffer.prototype.asciiWrite = function asciiWrite(string, offset = 0, length = string.length) {
+  Buffer.prototype.asciiWrite = function asciiWrite(string, offset, length) {
     if (typeof string !== 'string')
       throw new TypeError('argument must be a string');
-    if (offset < 0 || length < 0)
-      throw new RangeError('Index out of range');
-    if (offset > this.length)
-      throw new RangeError('"offset" is outside of buffer bounds');
+    if (typeof offset === 'undefined')
+      offset = 0;
+    else {
+      offset >>>= 0;
+      if (offset < 0)
+        throw new RangeError('Index out of range');
+      if (offset > this.length)
+        throw new RangeError('"offset" is outside of buffer bounds');
+    }
+    if (typeof length === 'undefined')
+      length = this.length - offset;
+    else {
+      length >>>= 0;
+      if (length < 0 || length > this.length)
+        throw new RangeError('Index out of range');
+    }
     length = Math.min(this.length - offset, string.length, length);
     for (let i = 0; i !== length; ++i)
       this[offset++] = string.charCodeAt(i) & 0xFF;
     return length;
   }
 
-  Buffer.prototype.utf8Slice = function utf8Slice(start = 0, end = this.length) {
-    if (start < 0 || start > this.length || end > this.length)
-      throw new RangeError('Index out of range');
-    if (end < start)
-      end = start;
+  Buffer.prototype.utf8Slice = function utf8Slice(start, end) {
+    if (typeof start === 'undefined')
+      start = 0;
+    else {
+      start >>>= 0;
+      if (start < 0 || start > this.length)
+        throw new RangeError('Index out of range');
+    }
+    if (typeof end === 'undefined')
+      end = this.length;
+    else {
+      end >>>= 0;
+      if (end < 0 || end > this.length)
+        throw new RangeError('Index out of range');
+    }
     let res = '';
     let i = start;
     while (i < end) {
@@ -1382,15 +1476,25 @@
     return res;
   }
 
-  Buffer.prototype.utf8Write = function utf8Write(string, offset = 0, length = byteLengthUtf8(string)) {
+  Buffer.prototype.utf8Write = function utf8Write(string, offset, length) {
     if (typeof string !== 'string')
       throw new TypeError('argument must be a string');
-    if (offset < 0)
-      throw new RangeError('Index out of range');
-    if (offset > this.length)
-      throw new RangeError('"offset" is outside of buffer bounds');
-    if (length < 0)
-      throw new RangeError('Index out of range');
+    if (typeof offset === 'undefined')
+      offset = 0;
+    else {
+      offset >>>= 0;
+      if (offset < 0)
+        throw new RangeError('Index out of range');
+      if (offset > this.length)
+        throw new RangeError('"offset" is outside of buffer bounds');
+    }
+    if (typeof length === 'undefined')
+      length = this.length - offset;
+    else {
+      length >>>= 0;
+      if (length < 0 || length > this.length)
+        throw new RangeError('Index out of range');
+    }
     length = Math.min(this.length - offset, byteLengthUtf8(string), length);
     let written = 0;
     let lead = null;
@@ -1457,26 +1561,46 @@
     return written;
   }
 
-  Buffer.prototype.ucs2Slice = function ucs2Slice(start = 0, end = this.length) {
-    if (start < 0 || start > this.length || end > this.length)
-      throw new RangeError('Index out of range');
-    if (end < start)
-      end = start;
+  Buffer.prototype.ucs2Slice = function ucs2Slice(start, end) {
+    if (typeof start === 'undefined')
+      start = 0;
+    else {
+      start >>>= 0;
+      if (start < 0 || start > this.length)
+        throw new RangeError('Index out of range');
+    }
+    if (typeof end === 'undefined')
+      end = this.length;
+    else {
+      end >>>= 0;
+      if (end < 0 || end > this.length)
+        throw new RangeError('Index out of range');
+    }
     let res = '';
     for (let i = start; i < end - 1; i += 2)
       res += String.fromCharCode((this[i + 1] << 8) + this[i]);
     return res;
   }
 
-  Buffer.prototype.ucs2Write = function ucs2Write(string, offset = 0, length = string.length * 2) {
+  Buffer.prototype.ucs2Write = function ucs2Write(string, offset, length) {
     if (typeof string !== 'string')
       throw new TypeError('argument must be a string');
-    if (offset < 0)
-      throw new RangeError('Index out of range');
-    if (offset > this.length)
-      throw new RangeError('"offset" is outside of buffer bounds');
-    if (length < 0)
-      throw new RangeError('Index out of range');
+    if (typeof offset === 'undefined')
+      offset = 0;
+    else {
+      offset >>>= 0;
+      if (offset < 0)
+        throw new RangeError('Index out of range');
+      if (offset > this.length)
+        throw new RangeError('"offset" is outside of buffer bounds');
+    }
+    if (typeof length === 'undefined')
+      length = this.length - offset;
+    else {
+      length >>>= 0;
+      if (length < 0 || length > this.length)
+        throw new RangeError('Index out of range');
+    }
     length = Math.min(this.length - offset, string.length * 2, length);
     let written = 0;
     for (let i = 0; i !== string.length; ++i) {
@@ -1490,24 +1614,46 @@
     return written;
   }
 
-  Buffer.prototype.latin1Slice = function latin1Slice(start = 0, end = this.length) {
-    if (start < 0 || start > this.length || end > this.length)
-      throw new RangeError('Index out of range');
-    if (end < start)
-      end = start;
+  Buffer.prototype.latin1Slice = function latin1Slice(start, end) {
+    if (typeof start === 'undefined')
+      start = 0;
+    else {
+      start >>>= 0;
+      if (start < 0 || start > this.length)
+        throw new RangeError('Index out of range');
+    }
+    if (typeof end === 'undefined')
+      end = this.length;
+    else {
+      end >>>= 0;
+      if (end < 0 || end > this.length)
+        throw new RangeError('Index out of range');
+    }
     let ret = '';
     for (let i = start; i !== end; ++i)
       ret += String.fromCharCode(this[i]);
     return ret;
   }
 
-  Buffer.prototype.latin1Write = function latin1Write(string, offset = 0, length = string.length) {
+  Buffer.prototype.latin1Write = function latin1Write(string, offset, length) {
     if (typeof string !== 'string')
       throw new TypeError('argument must be a string');
-    if (offset < 0 || length < 0)
-      throw new RangeError('Index out of range');
-    if (offset > this.length)
-      throw new RangeError('"offset" is outside of buffer bounds');
+    if (typeof offset === 'undefined')
+      offset = 0;
+    else {
+      offset >>>= 0;
+      if (offset < 0)
+        throw new RangeError('Index out of range');
+      if (offset > this.length)
+        throw new RangeError('"offset" is outside of buffer bounds');
+    }
+    if (typeof length === 'undefined')
+      length = this.length - offset;
+    else {
+      length >>>= 0;
+      if (length < 0 || length > this.length)
+        throw new RangeError('Index out of range');
+    }
     length = Math.min(this.length - offset, string.length, length);
     for (let i = 0; i !== length; ++i)
       this[offset++] = string.charCodeAt(i) & 0xFF;
@@ -1631,40 +1777,94 @@
   }
 
   function base64Clean(str) {
-    return str.split('=')[0].trim().replace(/[^+/0-9A-Za-z-_]/g, '');
+    return str.split('=')[0].trim()
+      .replace(/[^+/0-9A-Za-z-_]/g, '')
+      .replace(/-/g, '+')
+      .replace(/_/g, '/')
+      .replace(/=+$/, '');
   }
 
   Buffer.prototype.base64Slice = function base64Slice(start = 0, end = this.length) {
-    if (start < 0 || start > this.length || end > this.length)
-      throw new RangeError('Index out of range');
-    if (end < start)
-      end = start;
-    return base64Encode(this.toString('latin1', start, end));
+    return base64Encode(this.latin1Slice(start, end));
   }
 
-  Buffer.prototype.base64Write = function base64Write(string, offset = 0, length = base64ByteLength(base64Clean(string), string.length)) {
+  Buffer.prototype.base64Write = function base64Write(string, offset, length) {
     if (typeof string !== 'string')
       throw new TypeError('argument must be a string');
-    if (offset < 0 || length < 0)
-      throw new RangeError('Index out of range');
-    if (offset > this.length)
-      throw new RangeError('"offset" is outside of buffer bounds');
+    if (typeof offset === 'undefined')
+      offset = 0;
+    else {
+      offset >>>= 0;
+      if (offset < 0)
+        throw new RangeError('Index out of range');
+      if (offset > this.length)
+        throw new RangeError('"offset" is outside of buffer bounds');
+    }
+    if (typeof length === 'undefined')
+      length = this.length - offset;
+    else {
+      length >>>= 0;
+      if (length < 0 || length > this.length)
+        throw new RangeError('Index out of range');
+    }
     return this.latin1Write(base64Decode(base64Clean(string)), offset, length);
   }
 
-  Buffer.prototype.base64urlSlice = function base64urlSlice(start = 0, end = this.length) {
+  Buffer.prototype.base64urlSlice = function base64urlSlice(start, end) {
+    if (typeof start === 'undefined')
+      start = 0;
+    else {
+      start >>>= 0;
+      if (start < 0 || start > this.length)
+        throw new RangeError('Index out of range');
+    }
+    if (typeof end === 'undefined')
+      end = this.length;
+    else {
+      end >>>= 0;
+      if (end < 0 || end > this.length)
+        throw new RangeError('Index out of range');
+    }
     return this.base64Slice(start, end).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
   }
 
-  Buffer.prototype.base64urlWrite = function base64urlWrite(string, offset = 0, length = base64ByteLength(base64Clean(string), string.length)) {
+  Buffer.prototype.base64urlWrite = function base64urlWrite(string, offset, length) {
+    if (typeof string !== 'string')
+      throw new TypeError('argument must be a string');
+    if (typeof offset === 'undefined')
+      offset = 0;
+    else {
+      offset >>>= 0;
+      if (offset < 0)
+        throw new RangeError('Index out of range');
+      if (offset > this.length)
+        throw new RangeError('"offset" is outside of buffer bounds');
+    }
+    if (typeof length === 'undefined')
+      length = this.length - offset;
+    else {
+      length >>>= 0;
+      if (length < 0 || length > this.length)
+        throw new RangeError('Index out of range');
+    }
     return this.base64Write(string.replace(/-/g, '+').replace(/_/g, '/'), offset, length);
   }
 
   Buffer.prototype.hexSlice = function hexSlice(start = 0, end = this.length) {
-    if (start < 0 || start > this.length || end > this.length)
-      throw new RangeError('Index out of range');
-    if (end < start)
-      end = start;
+    if (typeof start === 'undefined')
+      start = 0;
+    else {
+      start >>>= 0;
+      if (start < 0 || start > this.length)
+        throw new RangeError('Index out of range');
+    }
+    if (typeof end === 'undefined')
+      end = this.length;
+    else {
+      end >>>= 0;
+      if (end < 0 || end > this.length)
+        throw new RangeError('Index out of range');
+    }
     let res = '';
     for (let i = start; i !== end; ++i)
       res += this[i].toString(16).padStart(2, '0');
@@ -1674,13 +1874,25 @@
   Buffer.prototype.hexWrite = function hexWrite(string, offset = 0, length = string.length >>> 1) {
     if (typeof string !== 'string')
       throw new TypeError('argument must be a string');
-    if (offset < 0 || length < 0)
-      throw new RangeError('Index out of range');
-    if (offset > this.length)
-      throw new RangeError('"offset" is outside of buffer bounds');
+    if (typeof offset === 'undefined')
+      offset = 0;
+    else {
+      offset >>>= 0;
+      if (offset < 0)
+        throw new RangeError('Index out of range');
+      if (offset > this.length)
+        throw new RangeError('"offset" is outside of buffer bounds');
+    }
+    if (typeof length === 'undefined')
+      length = this.length - offset;
+    else {
+      length >>>= 0;
+      if (length < 0 || length > this.length)
+        throw new RangeError('Index out of range');
+    }
     length = Math.min(this.length - offset, string.length >>> 1, length);
     for (let i = 0; i !== length; ++i) {
-      const code = parseInt(string.slice(i * 2, i * 2 + 1), 16);
+      const code = parseInt(string.slice(i * 2, i * 2 + 2), 16);
       if (Number.isNaN(code))
         return i;
       this[offset++] = code;
@@ -1920,6 +2132,11 @@
 
   function fromStringFast(string, ops) {
     const length = ops.byteLength(string);
+    if (length >= (Buffer.poolSize >>> 1)) {
+      const b = new FastBuffer(length);
+      ops.write(b, string, 0, length);
+      return b;
+    }
     if (length > (poolSize - poolOffset))
       createPool();
     let b = new FastBuffer(allocPool, poolOffset, length);
@@ -1982,7 +2199,7 @@
       if (obj.length > (poolSize - poolOffset))
         createPool();
       const b = new FastBuffer(allocPool, poolOffset, obj.length);
-      Uint8Array.prototype.set(b, obj, 0);
+      Uint8Array.prototype.set.call(b, obj, 0);
       poolOffset += obj.length;
       alignPool();
       return b;
@@ -2052,13 +2269,8 @@
     return buffer;
   };
 
-  function base64ByteLength(str, bytes) {
-    if (str.charCodeAt(bytes - 1) === 0x3D)
-      bytes--;
-    if (bytes > 1 && str.charCodeAt(bytes - 1) === 0x3D)
-      bytes--;
-
-    return (bytes * 3) >>> 2;
+  function base64ByteLength(str) {
+    return (base64Clean(str).length * 3) >>> 2;
   }
 
   const encodingOps = {
@@ -2114,7 +2326,7 @@
     base64: {
       encoding: 'base64',
       encodingVal: encodingsMap.base64,
-      byteLength: (string) => base64ByteLength(string, string.length),
+      byteLength: base64ByteLength,
       write: (buf, string, offset, len) => buf.base64Write(string, offset, len),
       slice: (buf, start, end) => buf.base64Slice(start, end),
       indexOf: (buf, val, byteOffset, dir) =>
@@ -2127,7 +2339,7 @@
     base64url: {
       encoding: 'base64url',
       encodingVal: encodingsMap.base64url,
-      byteLength: (string) => base64ByteLength(string, string.length),
+      byteLength: base64ByteLength,
       write: (buf, string, offset, len) =>
         buf.base64urlWrite(string, offset, len),
       slice: (buf, start, end) => buf.base64urlSlice(start, end),
@@ -2150,10 +2362,11 @@
                       byteOffset,
                       encodingsMap.hex,
                       dir),
-    },
+    }
   };
   function getEncodingOps(encoding) {
-    switch (encoding + '') {
+    encoding = (encoding + '').toLowerCase();
+    switch (encoding) {
       case 'utf8':
       case 'utf-8':
         return encodingOps.utf8;
@@ -2314,18 +2527,19 @@
     if (typeof byteOffset === 'string') {
       encoding = byteOffset;
       byteOffset = undefined;
-    } else if (byteOffset > 0x7fffffff)
+    } else if (byteOffset > 0x7fffffff) {
       byteOffset = 0x7fffffff;
-    else if (byteOffset < -0x80000000)
+    } else if (byteOffset < -0x80000000) {
       byteOffset = -0x80000000;
+    }
     byteOffset = +byteOffset;
     if (Number.isNaN(byteOffset))
       byteOffset = dir ? 0 : (buffer.length || buffer.byteLength);
 
+    dir = !!dir;
+
     if (typeof val === 'number')
-      return dir
-        ? Uint8Array.prototype.indexOf.call(buffer, val >>> 0, byteOffset)
-        : Uint8Array.prototype.lastIndexOf.call(buffer, val >>> 0, byteOffset);
+      return indexOfNumber(buffer, val >>> 0, byteOffset, dir);
 
     let ops;
     if (encoding === undefined)
@@ -2335,7 +2549,7 @@
     if (typeof val === 'string') {
       if (ops === undefined)
         throw new ERR_UNKNOWN_ENCODING(encoding);
-      val = Buffer.from(val, encoding);
+      return ops.indexOf(buffer, val, byteOffset, dir);
     }
 
     if (isUint8Array(val)) {
@@ -2408,16 +2622,25 @@
 
 
     if (typeof value === 'number') {
-      const byteLen = new Uint8Array(buf.buffer).byteLength;
+      const byteLen = buf.byteLength;
       const fillLen = end - offset;
       if (offset > end || fillLen + offset > byteLen)
         throw new ERR_BUFFER_OUT_OF_BOUNDS();
 
       Uint8Array.prototype.fill.call(buf, value, offset, end);
     } else {
-      if (!Buffer.isBuffer(value))
-        value = Buffer.from(value, encoding);
       const fillLen = end - offset;
+      if (offset > end || fillLen + offset > buf.length)
+        throw new ERR_BUFFER_OUT_OF_BOUNDS();
+      if (!Buffer.isBuffer(value)) {
+        if (typeof value === 'string') {
+          const b = Buffer.allocUnsafe(Buffer.byteLength(value, encoding));
+          if (b.write(value, encoding) === 0)
+            throw new ERR_INVALID_ARG_VALUE('value', value);
+          value = b;
+        } else value = Buffer.allocUnsafe(fillLen).fill(value | 0);
+      } else if (value.length === 0)
+        throw new ERR_INVALID_ARG_VALUE('value', value);
       for (let i = 0; i !== fillLen; ++i)
         buf[offset++] = value[i % value.length];
     }
@@ -2591,13 +2814,13 @@
     if (!isTypedArray(input) && !isAnyArrayBuffer(input))
       throw new ERR_INVALID_ARG_TYPE('input', ['ArrayBuffer', 'Buffer', 'TypedArray'], input);
 
-    for (let pos = 0; pos !== len; ++pos)
+    for (let pos = 0; pos !== input.byteLength; ++pos)
       if (input[pos] > 0x7F)
         return false;
     return true;
   }
 
-  Object.assign(module.exports, {
+  Object.assign(window, {
     Buffer,
     SlowBuffer,
     isUtf8,
