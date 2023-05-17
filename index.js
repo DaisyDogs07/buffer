@@ -1850,7 +1850,7 @@
     return this.base64Write(string.replace(/-/g, '+').replace(/_/g, '/'), offset, length);
   }
 
-  Buffer.prototype.hexSlice = function hexSlice(start = 0, end = this.length) {
+  Buffer.prototype.hexSlice = function hexSlice(start, end) {
     if (typeof start === 'undefined')
       start = 0;
     else {
@@ -1871,7 +1871,7 @@
     return res;
   }
 
-  Buffer.prototype.hexWrite = function hexWrite(string, offset = 0, length = string.length >>> 1) {
+  Buffer.prototype.hexWrite = function hexWrite(string, offset, length) {
     if (typeof string !== 'string')
       throw new TypeError('argument must be a string');
     if (typeof offset === 'undefined')
