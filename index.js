@@ -210,7 +210,7 @@
   function validateNumber(value, name, min, max) {
     if (typeof value !== 'number')
       throw new ERR_INVALID_ARG_TYPE(name, 'number', value);
-  
+
     if ((min != null && value < min) || (max != null && value > max) ||
         ((min != null || max != null) && Number.isNaN(value)))
       throw new ERR_OUT_OF_RANGE(
@@ -418,7 +418,7 @@
       return 'utf8';
     return slowCases(enc);
   }
-  
+
   function slowCases(enc) {
     enc = `${enc}`.toLowerCase();
     switch (enc) {
@@ -490,15 +490,15 @@
       validateNumber(value, type);
       throw new ERR_OUT_OF_RANGE(type || 'offset', 'an integer', value);
     }
-  
+
     if (length < 0)
       throw new ERR_BUFFER_OUT_OF_BOUNDS();
-  
+
     throw new ERR_OUT_OF_RANGE(type || 'offset',
                                `>= ${type ? 1 : 0} and <= ${length}`,
                                value);
   }
-  
+
   Buffer.prototype.readBigUInt64LE = function readBigUInt64LE(offset = 0) {
     validateNumber(offset, 'offset');
     const first = this[offset];
@@ -1710,7 +1710,7 @@
         sidx += 3;
       }
     }
-  
+
     if (sidx < dataLen) {
       out[didx++] = kBase64EncMap[(data.charCodeAt(sidx) >> 2) & 63];
       if (sidx < dataLen - 1) {
@@ -1928,7 +1928,7 @@
   const encodingsMap = { __proto__: null };
   for (let i = 0; i !== encodings.length; ++i)
     encodingsMap[encodings[i]] = i;
-  
+
   function createPool() {
     poolSize = Buffer.poolSize;
     allocPool = new FastBuffer(poolSize).buffer;
@@ -1978,7 +1978,7 @@
       if (targetStart < 0)
         throw new ERR_OUT_OF_RANGE('targetStart', '>= 0', targetStart);
     }
-  
+
     if (sourceStart === undefined)
       sourceStart = 0;
     else {
@@ -1986,7 +1986,7 @@
       if (sourceStart < 0 || sourceStart > source.length)
         throw new ERR_OUT_OF_RANGE('sourceStart', `>= 0 && <= ${source.length}`, sourceStart);
     }
-  
+
     if (sourceEnd === undefined)
       sourceEnd = source.length;
     else {
@@ -2125,7 +2125,7 @@
     validateNumber(length, 'size', 0, Number.MAX_SAFE_INTEGER);
     return new FastBuffer(length);
   }
-  
+
   Object.setPrototypeOf(SlowBuffer.prototype, Uint8Array.prototype);
   Object.setPrototypeOf(SlowBuffer, Uint8Array);
 
@@ -2512,15 +2512,15 @@
     if (targetStart === undefined)
       targetStart = 0;
     else validateOffset(targetStart, 'targetStart');
-  
+
     if (targetEnd === undefined)
       targetEnd = target.length;
     else validateOffset(targetEnd, 'targetEnd', 0, target.length);
-  
+
     if (sourceStart === undefined)
       sourceStart = 0;
     else validateOffset(sourceStart, 'sourceStart');
-  
+
     if (sourceEnd === undefined)
       sourceEnd = this.length;
     else validateOffset(sourceEnd, 'sourceEnd', 0, this.length);
@@ -2773,12 +2773,12 @@
   function isUtf8(input) {
     if (!isTypedArray(input) && !isAnyArrayBuffer(input))
       throw new ERR_INVALID_ARG_TYPE('input', ['TypedArray', 'Buffer'], input);
-    
+
     const len = input.length;
     let pos = 0;
     let code_point = 0;
+    let next_pos;
     while (pos < len) {
-      let next_pos = pos + 1;
       let byte = input[pos];
 
       while (byte <= 0x7F) {
@@ -2822,7 +2822,7 @@
     }
     return true;
   }
-  
+
   function isAscii(input) {
     if (!isTypedArray(input) && !isAnyArrayBuffer(input))
       throw new ERR_INVALID_ARG_TYPE('input', ['ArrayBuffer', 'Buffer', 'TypedArray'], input);
