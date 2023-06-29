@@ -45,6 +45,8 @@
   ];
 
   function inspect(value) {
+    if (Buffer.isBuffer(value))
+      return value.inspect();
     return value.toString ? value.toString() : Object.prototype.toString.call(value);
   }
 
@@ -146,6 +148,19 @@
     const err = new RangeError('Buffer size must be a multiple of ' + s);
     err.code = 'ERR_INVALID_BUFFER_SIZE';
     return err;
+  }
+
+  function ERR_MISSING_ARGS(...args) {
+    let msg = 'The ';
+    const len = args.length;
+    const wrap = (a) => `"${a}"`;
+    args = args.map((a) => {
+      return Array.isArray(a)
+        ? a.map(wrap).join(' or ')
+        : wrap(a);
+    });
+    msg += `${formatList(args)} argument${len > 1 ? 's' : ''}`;
+    return new TypeError(`${msg} must be specified`);
   }
 
   function addNumericalSeparator(val) {
@@ -2770,6 +2785,56 @@
 
   Buffer.prototype.toLocaleString = Buffer.prototype.toString;
 
+  function btoa(input) {
+    if (arguments.length === 0)
+      throw new ERR_MISSING_ARGS('input');
+    input = `${input}`;
+    for (let n = 0; n < input.length; n++)
+      if (input[n].charCodeAt(0) > 0xff)
+        throw new DOMException('Invalid character', 'InvalidCharacterError');
+    return Buffer.from(input, 'latin1').toString('base64');
+  }
+  
+  const kForgivingBase64AllowedChars = [
+    0x09, 0x0A, 0x0C, 0x0D, 0x20,
+    ...Array.from({ length: 26 }, (_, i) => 'A'.charCodeAt() + i),
+    ...Array.from({ length: 26 }, (_, i) => 'a'.charCodeAt() + i),
+    ...Array.from({ length: 10 }, (_, i) => '0'.charCodeAt() + i),
+    0x2B,
+    0x2F,
+    0x3D
+  ];
+  const kEqualSignIndex = kForgivingBase64AllowedChars.indexOf(0x3D);
+  
+  function atob(input) {
+    if (arguments.length === 0)
+      throw new ERR_MISSING_ARGS('input');
+    input = `${input}`;
+    let nonAsciiWhitespaceCharCount = 0;
+    let equalCharCount = 0;
+    for (let n = 0; n < input.length; n++) {
+      const index = kForgivingBase64AllowedChars.indexOf(input.charCodeAt(n));
+      if (index > 4) {
+        nonAsciiWhitespaceCharCount++;
+        if (index === kEqualSignIndex)
+          equalCharCount++;
+        else if (equalCharCount)
+          throw new DOMException('Invalid character', 'InvalidCharacterError');
+        if (equalCharCount > 2)
+          throw new DOMException('Invalid character', 'InvalidCharacterError');
+      } else if (index === -1)
+        throw new DOMException('Invalid character', 'InvalidCharacterError');
+    }
+    let reminder = nonAsciiWhitespaceCharCount % 4;
+    if (!reminder)
+      reminder = (nonAsciiWhitespaceCharCount - equalCharCount) % 4;
+    else if (equalCharCount)
+      throw new DOMException('Invalid character', 'InvalidCharacterError');
+    if (reminder === 1)
+      throw new DOMException('The string to be decoded is not correctly encoded.', 'InvalidCharacterError');
+    return Buffer.from(input, 'base64').toString('latin1');
+  }
+
   function isUtf8(input) {
     if (!isTypedArray(input) && !isAnyArrayBuffer(input))
       throw new ERR_INVALID_ARG_TYPE('input', ['TypedArray', 'Buffer'], input);
@@ -2837,6 +2902,8 @@
     Buffer,
     SlowBuffer,
     isUtf8,
-    isAscii
+    isAscii,
+    btoa,
+    atob
   });
 })();
