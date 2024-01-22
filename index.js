@@ -2182,7 +2182,6 @@
       if (string.length === 0)
         return new FastBuffer();
       ops = encodingOps.utf8;
-      encoding = undefined;
     } else {
       ops = getEncodingOps(encoding);
       if (ops === undefined)
