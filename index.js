@@ -1467,7 +1467,7 @@
         }
       } else if (first <= 0xEF) {
         if (i + 3 <= end) {
-          const second = this[i + 1];  
+          const second = this[i + 1];
           const third = this[i + 2];
           if ((second & 0xC0) === 0x80 && (third & 0xC0) === 0x80) {
             const tmp = (first & 0xF) << 0xC | (second & 0x3F) << 0x6 | (third & 0x3F);
@@ -1929,7 +1929,7 @@
   }
 
   Buffer.poolSize = 8 * 1024;
-  let poolSize, poolOffset, allocPool;
+  let poolSize, poolOffset, allocPool, allocBuffer;
 
   const encodings = [
     'ascii',
@@ -1946,7 +1946,8 @@
 
   function createPool() {
     poolSize = Buffer.poolSize;
-    allocPool = new FastBuffer(poolSize).buffer;
+    allocBuffer = new FastBuffer(poolSize);
+    allocPool = allocBuffer.buffer;
     poolOffset = 0;
   }
   createPool();
@@ -1981,15 +1982,15 @@
   }
 
   function _copy(source, target, targetStart, sourceStart, sourceEnd) {
-    if (!isUint8Array(source))
+    if (!ArrayBuffer.isView(source))
       throw new ERR_INVALID_ARG_TYPE('source', ['Buffer', 'Uint8Array'], source);
-    if (!isUint8Array(target))
+    if (!ArrayBuffer.isView(target))
       throw new ERR_INVALID_ARG_TYPE('target', ['Buffer', 'Uint8Array'], target);
 
     if (targetStart === undefined)
       targetStart = 0;
     else {
-      targetStart = toInteger(targetStart, 0);
+      targetStart = Number.isInteger(targetStart) ? targetStart : toInteger(targetStart, 0);
       if (targetStart < 0)
         throw new ERR_OUT_OF_RANGE('targetStart', '>= 0', targetStart);
     }
@@ -1997,35 +1998,38 @@
     if (sourceStart === undefined)
       sourceStart = 0;
     else {
-      sourceStart = toInteger(sourceStart, 0);
-      if (sourceStart < 0 || sourceStart > source.length)
-        throw new ERR_OUT_OF_RANGE('sourceStart', `>= 0 && <= ${source.length}`, sourceStart);
+      sourceStart = Number.isInteger(sourceStart) ? sourceStart : toInteger(sourceStart, 0);
+      if (sourceStart < 0 || sourceStart > source.byteLength)
+        throw new ERR_OUT_OF_RANGE('sourceStart', `>= 0 && <= ${source.byteLength}`, sourceStart);
     }
 
     if (sourceEnd === undefined)
-      sourceEnd = source.length;
+      sourceEnd = source.byteLength;
     else {
-      sourceEnd = toInteger(sourceEnd, 0);
+      sourceEnd = Number.isInteger(sourceEnd) ? sourceEnd : toInteger(sourceEnd, 0);
       if (sourceEnd < 0)
         throw new ERR_OUT_OF_RANGE('sourceEnd', '>= 0', sourceEnd);
     }
 
-    if (targetStart >= target.length || sourceStart >= sourceEnd)
+    if (targetStart >= target.byteLength || sourceStart >= sourceEnd)
       return 0;
 
     return _copyActual(source, target, targetStart, sourceStart, sourceEnd);
   }
 
   function _copyActual(source, target, targetStart, sourceStart, sourceEnd) {
-    if (sourceEnd - sourceStart > target.length - targetStart)
-      sourceEnd = sourceStart + target.length - targetStart;
+    if (sourceEnd - sourceStart > target.byteLength - targetStart)
+      sourceEnd = sourceStart + target.byteLength - targetStart;
 
     let nb = sourceEnd - sourceStart;
-    const sourceLen = source.length - sourceStart;
+    const sourceLen = source.byteLength - sourceStart;
     if (nb > sourceLen)
       nb = sourceLen;
 
-    if (sourceStart !== 0 || sourceEnd < source.length)
+    if (nb <= 0)
+      return 0;
+
+    if (sourceStart !== 0 || sourceEnd < source.byteLength)
       source = new Uint8Array(source.buffer, source.byteOffset + sourceStart, nb);
 
     Uint8Array.prototype.set.call(target, source, targetStart);
@@ -2159,37 +2163,47 @@
   }
 
   function fromStringFast(string, ops) {
-    const length = ops.byteLength(string);
-    if (length >= (Buffer.poolSize >>> 1)) {
-      const b = new FastBuffer(length);
-      ops.write(b, string, 0, length);
-      return b;
-    }
+    const maxLength = Buffer.poolSize >>> 1;
+    let length = string.length;
+
+    if (length >= maxLength)
+      return createFromString(string, ops);
+
+    length *= 4;
+
+    if (length >= maxLength)
+      length = ops.byteLength(string);
+
+    if (length >= maxLength)
+      return createFromString(string, ops, length);
+
     if (length > (poolSize - poolOffset))
       createPool();
-    let b = new FastBuffer(allocPool, poolOffset, length);
-    const actual = ops.write(b, string, 0, length);
-    if (actual !== length)
-      b = new FastBuffer(allocPool, poolOffset, actual);
+
+    const actual = ops.write(allocBuffer, string, poolOffset, length);
+    const b = new FastBuffer(allocPool, poolOffset, actual);
+
     poolOffset += actual;
     alignPool();
     return b;
   }
 
+  function createFromString(string, ops, length = ops.byteLength(string)) {
+    const buf = Buffer.allocUnsafeSlow(length);
+    const actual = ops.write(buf, string, 0, length);
+    return actual < length ? new FastBuffer(buf.buffer, 0, actual) : buf;
+  }
+
   function fromString(string, encoding) {
     let ops;
-    if (typeof encoding !== 'string' || encoding.length === 0) {
-      if (string.length === 0)
-        return new FastBuffer();
+    if (!encoding || encoding === 'utf8' || typeof encoding !== 'string')
       ops = encodingOps.utf8;
-    } else {
+    else {
       ops = getEncodingOps(encoding);
       if (ops === undefined)
         throw new ERR_UNKNOWN_ENCODING(encoding);
-      if (string.length === 0)
-        return new FastBuffer();
     }
-    return fromStringFast(string, ops);
+    return string.length === 0 ? new FastBuffer() : fromStringFast(string, ops);
   }
 
   function fromArrayBuffer(obj, byteOffset, length) {
@@ -2427,12 +2441,16 @@
     if (len === 0)
       return 0;
 
-    if (encoding) {
-      const ops = getEncodingOps(encoding);
-      if (ops)
-        return ops.byteLength(string);
-    }
-    return byteLengthUtf8(string);
+    if (!encoding || encoding === 'utf8')
+      return byteLengthUtf8(string);
+
+    if (encoding === 'ascii')
+      return len;
+
+    const ops = getEncodingOps(encoding);
+    if (ops === undefined)
+      return byteLengthUtf8(string);
+    return ops.byteLength(string);
   }
 
   Buffer.byteLength = byteLength;
@@ -2699,8 +2717,10 @@
       }
     }
 
-    if (!encoding)
+    if (!encoding || encoding === 'utf8')
       return this.utf8Write(string, offset, length);
+    if (encoding === 'ascii')
+      return this.asciiWrite(string, offset, length);
 
     const ops = getEncodingOps(encoding);
     if (ops === undefined)
@@ -2793,7 +2813,7 @@
         throw new DOMException('Invalid character', 'InvalidCharacterError');
     return Buffer.from(input, 'latin1').toString('base64');
   }
-  
+
   const kForgivingBase64AllowedChars = [
     0x09, 0x0A, 0x0C, 0x0D, 0x20,
     ...Array.from({ length: 26 }, (_, i) => 'A'.charCodeAt() + i),
@@ -2804,7 +2824,7 @@
     0x3D
   ];
   const kEqualSignIndex = kForgivingBase64AllowedChars.indexOf(0x3D);
-  
+
   function atob(input) {
     if (arguments.length === 0)
       throw new ERR_MISSING_ARGS('input');
